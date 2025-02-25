@@ -10,6 +10,7 @@ db.init_app(app)
 # Create tables (run once)
 with app.app_context():
     db.create_all()
+    print("Database tables created")
 
 @app.route('/')
 def index():
