@@ -4,6 +4,7 @@ env/
 venv
 extras/
 
+
 # Ignore Python cache files
 __pycache__/
 *.py[cod]
@@ -24,3 +25,4 @@ build/
 dist/
 *.egg-info/
 
+project/instance/
