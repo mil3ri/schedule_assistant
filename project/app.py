@@ -35,7 +35,7 @@ def get_lessons():
     return jsonify([{
         'course_code': lesson.course_code,
         'name': lesson.name,
-        'day': lesson.day,
+        'day': lesson.days,
         'time': f"{lesson.start_time.strftime('%H:%M')} - {lesson.end_time.strftime('%H:%M')}",
         'instructor': lesson.instructor,
         'classroom': lesson.classroom
