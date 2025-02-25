@@ -27,4 +27,5 @@ dist/
 
 project/instance/
 
-*code-workspace
+*.code-workspace
+*.db
