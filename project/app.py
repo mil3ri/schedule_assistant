@@ -23,7 +23,7 @@ def get_lessons():
     filters = {
         'course_code': request.args.get('course_code'),
         'name': request.args.get('name'),
-        'day': request.args.get('day'),
+        'days': request.args.get('day'),  # Corrected the 'day' filter to use 'days'
         'instructor': request.args.get('instructor'),
         'classroom': request.args.get('classroom')
     }
