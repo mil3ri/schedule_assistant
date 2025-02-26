@@ -4,8 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Course Schedule</title>
-    <!-- Placeholder for style.css (you'll replace this) -->
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <!-- Your custom styles -->
     <style>
+        /* ... (Your CSS styles remain unchanged) ... */
         body {
             font-family: sans-serif;
             background-color: #121212; /* Dark background */
@@ -44,14 +47,69 @@
             border-radius: 4px;
             margin-right: 5px;
         }
+        /* Style for the Add button (override Bootstrap's default) */
+        .btn-success {
+            background-color: #28a745; /* Keep Bootstrap's green */
+            border-color: #28a745;
+        }
+        .btn-success:hover {
+            background-color: #218838; /* Darker green on hover */
+            border-color: #1e7e34;
+        }
 
-        button {
-            background-color: #4CAF50;
-            color: white;
-            padding: 10px 15px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
+       .btn-danger {
+            background-color: #dc3545; /* Keep Bootstrap's red */
+            border-color: #dc3545;
+        }
+        .btn-danger:hover {
+            background-color: #c82333;
+            border-color: #bd2130;
+        }
+
+
+        /* Style for the lesson cards */
+        .card {
+            background-color: #2a2a2a; /* Darker card background */
+            border: 1px solid #444;
+            color: #eee;
+        }
+        .card-body {
+            padding: 1rem; /* Consistent padding */
+        }
+        .card-body h5 {
+            margin-top: 0; /* Remove top margin from heading */
+            margin-bottom: 0.5rem; /* Consistent spacing */
+        }
+
+        /* Make the lessons list scrollable */
+        #lessonsList {
+            overflow-y: auto; /* Enable vertical scrolling */
+            max-height: 500px; /* Set a maximum height (adjust as needed) */
+        }
+
+        /* Style for the timetable */
+        #schedule table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        #schedule th, #schedule td {
+            border: 1px solid #444;
+            padding: 8px;
+            text-align: center;
+            color: #eee;
+        }
+
+        #schedule th {
+            background-color: #333;
+        }
+        #schedule td {
+            background-color: #2a2a2a;
+            height: 40px;  /* Fixed height for cells */
+        }
+        /* Style for occupied cells */
+        #schedule td.occupied {
+            background-color: #555;
         }
     </style>
 </head>
@@ -59,8 +117,39 @@
     <div class="container">
         <div class="schedule-column">
             <h2>Schedule</h2>
-            <p>Schedule will be displayed here.</p>
-            <!-- You might add a calendar or timetable representation here -->
+             <div id="schedule">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Monday</th>
+                            <th>Tuesday</th>
+                            <th>Wednesday</th>
+                            <th>Thursday</th>
+                            <th>Friday</th>
+                            <th>Saturday</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Generate time slots (8:00 to 19:00) -->
+                        <script>
+                            for (let hour = 8; hour <= 19; hour++) {
+                                document.write(`
+                                    <tr>
+                                        <td>${hour.toString().padStart(2, '0')}:00</td>
+                                        <td data-day="Monday" data-time="${hour.toString().padStart(2, '0')}:00"></td>
+                                        <td data-day="Tuesday" data-time="${hour.toString().padStart(2, '0')}:00"></td>
+                                        <td data-day="Wednesday" data-time="${hour.toString().padStart(2, '0')}:00"></td>
+                                        <td data-day="Thursday" data-time="${hour.toString().padStart(2, '0')}:00"></td>
+                                        <td data-day="Friday" data-time="${hour.toString().padStart(2, '0')}:00"></td>
+                                         <td data-day="Saturday" data-time="${hour.toString().padStart(2, '0')}:00"></td>
+                                    </tr>
+                                `);
+                            }
+                        </script>
+                    </tbody>
+                </table>
+            </div>
         </div>
 
         <div class="lessons-column">
@@ -85,39 +174,89 @@
         </div>
     </div>
 
-    <!-- Placeholder for your JavaScript (to be provided in the next step) -->
+    <!-- Bootstrap JS (optional, but required for some Bootstrap features) -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
     <script>
-      // Put your JavaScript code here from the next prompt.
-      function loadLessons() {
-    const courseCode = document.getElementById('courseCode').value;
-    const courseName = document.getElementById('courseName').value;
-    const day = document.getElementById('dayFilter').value;
 
-    fetch(`/api/lessons?course_code=${courseCode}&name=${courseName}&day=${day}`)
-        .then(response => response.json())
-        .then(lessons => {
-            const lessonsList = document.getElementById('lessonsList');
-            lessonsList.innerHTML = ''; // Clear previous lessons
+    function addToSchedule(courseCode, times) {
+        console.log("addToSchedule called with courseCode:", courseCode, "and times:", times); // Print arguments
 
-            if (lessons.length === 0) {
-                lessonsList.innerHTML = '<p>No lessons found.</p>';
-                return;
+        for (const timeStr of times) {
+            console.log("Processing timeStr:", timeStr); // Print each time string
+            const [day, timeRange] = timeStr.trim().split(" ");
+            const startTime = timeRange.split("-")[0];
+            console.log("Extracted day:", day, "startTime:", startTime); // Print extracted values
+
+
+            const cell = document.querySelector(`#schedule td[data-day="${day.trim()}"][data-time="${startTime.trim()}"]`);
+            console.log("Found cell:", cell); // Print the found cell (or null)
+
+
+            if (cell) {
+                if (cell.textContent.trim() !== "") {
+                    alert(`Conflict: ${courseCode} conflicts with ${cell.textContent} on ${day} at ${startTime}`);
+                    continue;
+                }
+                cell.textContent = courseCode;
+                cell.classList.add("occupied");
             }
+        }
+    }
 
-            lessons.forEach(lesson => {
-                const lessonDiv = document.createElement('div');
-                lessonDiv.classList.add('lesson'); // Add a class for styling
-                lessonDiv.innerHTML = `
-                    <h3>${lesson.course_code} - ${lesson.name}</h3>
-                    <p>Day: ${lesson.day}</p>
-                    <p>Time: ${lesson.time}</p>
-                    <p>Instructor: ${lesson.instructor}</p>
-                    <p>Classroom: ${lesson.classroom}</p>
-                `;
-                lessonsList.appendChild(lessonDiv);
-            });
-        });
-}
+    function removeFromSchedule(courseCode) {
+        console.log("removeFromSchedule called with courseCode:", courseCode); // Print argument
+        const cells = document.querySelectorAll(`#schedule td.occupied`);
+        console.log("Found occupied cells:", cells); // Print all occupied cells
+
+        for (const cell of cells) {
+            console.log("Checking cell:", cell, "with textContent:", cell.textContent); // Print each cell
+            if (cell.textContent.trim() === courseCode) {
+                cell.textContent = "";
+                cell.classList.remove("occupied");
+            }
+        }
+    }
+
+    async function loadLessons() {
+        const courseCode = document.getElementById('courseCode').value;
+        const courseName = document.getElementById('courseName').value;
+        const day = document.getElementById('dayFilter').value;
+
+        const params = new URLSearchParams();
+        if (courseCode) params.append('course_code', courseCode);
+        if (courseName) params.append('name', courseName);
+        if (day) params.append('day', day);
+
+        const url = `/api/lessons${params.toString() ? '?' + params.toString() : ''}`;
+        console.log("Fetching URL:", url); // Print the URL being fetched
+
+        const response = await fetch(url);
+        const lessons = await response.json();
+        console.log("Fetched lessons:", lessons); // Print the fetched lessons
+
+
+        const lessonsList = document.getElementById('lessonsList');
+        lessonsList.innerHTML = lessons.map(lesson => {
+            console.log("Processing lesson:", lesson);  // Log each lesson object
+            return `
+                <div class="card mb-2">
+                    <div class="card-body">
+                        <h5>${lesson.course_code} - ${lesson.name}</h5>
+                        <p>Times: ${lesson.processedtimes}</p>
+                        <p>Instructor: ${lesson.instructor}</p>
+                        <button onclick="addToSchedule('${lesson.course_code}, ${lesson.processedtimes}')" class="btn btn-success">Add</button>
+                        <button onclick="removeFromSchedule('${lesson.course_code}')" class="btn btn-danger">Remove</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+
+    document.addEventListener('DOMContentLoaded', loadLessons);
     </script>
 </body>
 </html>

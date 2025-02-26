@@ -9,8 +9,7 @@ class Lesson(db.Model):
     credits = db.Column(db.Integer)             # Added field for credits
     ects = db.Column(db.Integer)                # Added field for ects
     days = db.Column(db.String(10))              # e.g., "Monday"
-    start_time = db.Column(db.Time)             # e.g., "09:00"
-    end_time = db.Column(db.Time)               # e.g., "10:15"
+    hours = db.Column(db.Integer)              # e.g., "10:15"
     instructor = db.Column(db.String(100))
     classroom = db.Column(db.String(50))
     requirements = db.Column(db.String(200))

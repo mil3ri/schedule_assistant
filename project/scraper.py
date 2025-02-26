@@ -80,25 +80,8 @@ def scrape_boun_schedule(headless=False):
                 days = cols[7]
                 hours = cols[8]
 
-                # Check if hours are not empty before parsing
-                if hours:
-                    # Parse the hours to get start and end times
-                    try:
-                        start_section = int(hours[0])
-                        end_section = int(hours[-1])
-                        start_time = time(hour=(start_section - 1 + 8) % 24)
-                        end_time = time(hour=(end_section - 1 + 8) % 24)
-                    except ValueError as e:
-                        print(f"Error parsing time: {e}, Hours: {hours}")
-                        start_time = None
-                        end_time = None
-
-                else:
-                    start_time = None
-                    end_time = None
-
                 # Print extracted data for debugging
-                print(f"Extracted data: {course_code}, {course_name}, {credits}, {ects}, {instructor}, {days}, {start_time}, {end_time}")
+                print(f"Extracted data: {course_code}, {course_name}, {credits}, {ects}, {instructor}, {days}, {hours}")
                 # Database interaction with extensive debugging
                 with app.app_context():
                     print("Entered app context")
@@ -110,8 +93,7 @@ def scrape_boun_schedule(headless=False):
                             ects=int(ects) if ects else None,
                             instructor=instructor,
                             days=days,
-                            start_time=start_time,
-                            end_time=end_time
+                            hours=hours,
                         )
                         print(f"Lesson object created: {lesson}")
 
