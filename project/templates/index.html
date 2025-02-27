@@ -6,9 +6,8 @@
     <title>Course Schedule</title>
     <!-- Bootstrap CSS -->
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <!-- Your custom styles -->
     <style>
-        /* ... (Your CSS styles remain unchanged) ... */
+        /* ... (Your CSS styles, same as before) ... */
         body {
             font-family: sans-serif;
             background-color: #121212; /* Dark background */
@@ -47,7 +46,6 @@
             border-radius: 4px;
             margin-right: 5px;
         }
-        /* Style for the Add button (override Bootstrap's default) */
         .btn-success {
             background-color: #28a745; /* Keep Bootstrap's green */
             border-color: #28a745;
@@ -66,8 +64,6 @@
             border-color: #bd2130;
         }
 
-
-        /* Style for the lesson cards */
         .card {
             background-color: #2a2a2a; /* Darker card background */
             border: 1px solid #444;
@@ -81,13 +77,11 @@
             margin-bottom: 0.5rem; /* Consistent spacing */
         }
 
-        /* Make the lessons list scrollable */
         #lessonsList {
             overflow-y: auto; /* Enable vertical scrolling */
             max-height: 500px; /* Set a maximum height (adjust as needed) */
         }
 
-        /* Style for the timetable */
         #schedule table {
             width: 100%;
             border-collapse: collapse;
@@ -107,10 +101,18 @@
             background-color: #2a2a2a;
             height: 40px;  /* Fixed height for cells */
         }
-        /* Style for occupied cells */
         #schedule td.occupied {
             background-color: #555;
         }
+
+        #conflictMessages {
+            margin-top: 10px;
+            color: #ffc107; /* Bootstrap's warning color */
+        }
+        #conflictMessages p {
+            margin: 5px 0; /* Spacing between messages */
+        }
+
     </style>
 </head>
 <body>
@@ -118,6 +120,7 @@
         <div class="schedule-column">
             <h2>Schedule</h2>
              <div id="schedule">
+                <!-- Schedule table and generation (same as before) -->
                 <table>
                     <thead>
                         <tr>
@@ -131,30 +134,34 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <!-- Generate time slots (8:00 to 19:00) -->
                         <script>
-                            for (let hour = 8; hour <= 19; hour++) {
-                                document.write(`
-                                    <tr>
+                            document.addEventListener('DOMContentLoaded', () => {
+                                const tbody = document.querySelector('#schedule tbody');
+                                for (let hour = 9; hour <= 19; hour++) {
+                                    const row = document.createElement('tr');
+                                    row.innerHTML = `
                                         <td>${hour.toString().padStart(2, '0')}:00</td>
-                                        <td data-day="Monday" data-time="${hour.toString().padStart(2, '0')}:00"></td>
-                                        <td data-day="Tuesday" data-time="${hour.toString().padStart(2, '0')}:00"></td>
-                                        <td data-day="Wednesday" data-time="${hour.toString().padStart(2, '0')}:00"></td>
-                                        <td data-day="Thursday" data-time="${hour.toString().padStart(2, '0')}:00"></td>
-                                        <td data-day="Friday" data-time="${hour.toString().padStart(2, '0')}:00"></td>
-                                         <td data-day="Saturday" data-time="${hour.toString().padStart(2, '0')}:00"></td>
-                                    </tr>
-                                `);
-                            }
+                                        <td data-day="Monday" data-time="${hour.toString().padStart(2, '0')}.00"></td>
+                                        <td data-day="Tuesday" data-time="${hour.toString().padStart(2, '0')}.00"></td>
+                                        <td data-day="Wednesday" data-time="${hour.toString().padStart(2, '0')}.00"></td>
+                                        <td data-day="Thursday" data-time="${hour.toString().padStart(2, '0')}.00"></td>
+                                        <td data-day="Friday" data-time="${hour.toString().padStart(2, '0')}.00"></td>
+                                        <td data-day="Saturday" data-time="${hour.toString().padStart(2, '0')}.00"></td>
+                                    `;
+                                    tbody.appendChild(row);
+                                }
+                                updateButtonStates(); //Initial button states
+                            });
                         </script>
                     </tbody>
                 </table>
             </div>
+            <div id="conflictMessages"></div>  <!-- Conflict message display -->
         </div>
 
         <div class="lessons-column">
+            <!-- Lessons section (filters and list, same as before) -->
             <h2>Lessons</h2>
-            <!-- Filters -->
             <div class="mb-4">
                 <input type="text" id="courseCode" placeholder="Course Code">
                 <input type="text" id="courseName" placeholder="Course Name">
@@ -168,58 +175,155 @@
                 </select>
                 <button onclick="loadLessons()" class="btn btn-primary">Filter</button>
               </div>
-
-              <!-- Lessons will be displayed here -->
               <div id="lessonsList"></div>
         </div>
     </div>
 
-    <!-- Bootstrap JS (optional, but required for some Bootstrap features) -->
     <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 
     <script>
+    // --- Helper Functions ---
 
-    function addToSchedule(courseCode, times) {
-        console.log("addToSchedule called with courseCode:", courseCode, "and times:", times); // Print arguments
+    function clearConflictMessages() {
+        document.getElementById('conflictMessages').innerHTML = '';
+    }
 
-        for (const timeStr of times) {
-            console.log("Processing timeStr:", timeStr); // Print each time string
-            const [day, timeRange] = timeStr.trim().split(" ");
-            const startTime = timeRange.split("-")[0];
-            console.log("Extracted day:", day, "startTime:", startTime); // Print extracted values
+    function addConflictMessage(message) {
+        const conflictDiv = document.getElementById('conflictMessages');
+        const p = document.createElement('p');
+        p.textContent = message;
+        conflictDiv.appendChild(p);
+    }
 
+    // --- Core Logic ---
 
-            const cell = document.querySelector(`#schedule td[data-day="${day.trim()}"][data-time="${startTime.trim()}"]`);
-            console.log("Found cell:", cell); // Print the found cell (or null)
+    const courseCells = new Map(); // Tracks cells occupied by each course.
 
+    function toggleAddRemove(courseCode, button) {
+        if (button.classList.contains('btn-success')) {
+            addToSchedule(courseCode, button);
+        } else {
+            removeFromSchedule(courseCode, button);
+        }
+        updateConflicts(); // Re-check conflicts after any change
+    }
+    function addToSchedule(courseCode, button) {
+      const lessonCard = button.closest('.card');
+      const processedtimes = lessonCard.querySelector('p:nth-child(2)').textContent.replace('Times: ', '').trim();
+      console.log("addToSchedule called with:", courseCode, processedtimes);
 
-            if (cell) {
-                if (cell.textContent.trim() !== "") {
-                    alert(`Conflict: ${courseCode} conflicts with ${cell.textContent} on ${day} at ${startTime}`);
-                    continue;
+      const cellsAdded = [];
+      let added = false;
+
+      const timesArray = processedtimes.split(',').map(time => time.trim());
+      for (const timeStr of timesArray) {
+          const [day, timeRange] = timeStr.split(" ");
+          const startTime = timeRange.split("-")[0];
+
+          const cell = document.querySelector(`#schedule td[data-day="${day.trim()}"][data-time="${startTime.trim()}"]`);
+          if (cell) {
+              cell.textContent += (cell.textContent ? ", " : "") + courseCode;
+              cell.classList.add("occupied");
+              cellsAdded.push(cell);
+              added = true;
+          }
+      }
+
+      if (added) {
+          courseCells.set(courseCode, cellsAdded);
+          button.classList.remove('btn-success');
+          button.classList.add('btn-danger');
+          button.textContent = 'Remove';
+      }
+    }
+    function removeFromSchedule(courseCode, button) {
+        console.log("removeFromSchedule called with:", courseCode);
+        const cells = courseCells.get(courseCode);
+
+        if (cells) {
+            for (const cell of cells) {
+                let cellContent = cell.textContent.trim();
+                if (cellContent.includes(courseCode)) {
+                    let updatedContent = cellContent.split(',').map(c => c.trim()).filter(c => c !== courseCode).join(', ');
+                    cell.textContent = updatedContent;
+                    if (cell.textContent.trim() === "") {
+                        cell.classList.remove('occupied');
+                    }
                 }
-                cell.textContent = courseCode;
-                cell.classList.add("occupied");
             }
+            courseCells.delete(courseCode);
+            button.classList.remove('btn-danger');
+            button.classList.add('btn-success');
+            button.textContent = 'Add';
         }
     }
+    // --- Conflict Detection ---
 
-    function removeFromSchedule(courseCode) {
-        console.log("removeFromSchedule called with courseCode:", courseCode); // Print argument
-        const cells = document.querySelectorAll(`#schedule td.occupied`);
-        console.log("Found occupied cells:", cells); // Print all occupied cells
+    function updateConflicts() {
+      clearConflictMessages();
+      const allCells = document.querySelectorAll('#schedule td.occupied');
+      const checkedPairs = new Set(); // Keep track of pairs we've already checked
 
-        for (const cell of cells) {
-            console.log("Checking cell:", cell, "with textContent:", cell.textContent); // Print each cell
-            if (cell.textContent.trim() === courseCode) {
-                cell.textContent = "";
-                cell.classList.remove("occupied");
-            }
-        }
+      for (const cell of allCells) {
+          const courses = cell.textContent.trim().split(',').map(c => c.trim()).filter(c => c !== "");
+          if (courses.length > 1) {
+              // Generate all pairs of courses within this cell
+              for (let i = 0; i < courses.length; i++) {
+                  for (let j = i + 1; j < courses.length; j++) {
+                      const courseA = courses[i];
+                      const courseB = courses[j];
+                      const pairKey = [courseA, courseB].sort().join('|'); // Consistent key
+
+                      // Check if we've already reported this conflict
+                      if (!checkedPairs.has(pairKey)) {
+                          addConflictMessage(`Conflict: ${courseA} conflicts with ${courseB} on ${cell.dataset.day} at ${cell.dataset.time}`);
+                          checkedPairs.add(pairKey); // Mark this pair as checked
+                      }
+                  }
+              }
+          }
+      }
     }
 
+
+    // --- Button State Management ---
+    function updateButtonStates() {
+      const lessonCards = document.querySelectorAll('#lessonsList .card');
+      lessonCards.forEach(card => {
+          const courseCode = card.querySelector('h5').textContent.split(' - ')[0];
+          const button = card.querySelector('button');
+          const isScheduled = isLessonScheduled(courseCode);
+
+          button.classList.toggle('btn-danger', isScheduled);
+          button.classList.toggle('btn-success', !isScheduled);
+          button.textContent = isScheduled ? 'Remove' : 'Add';
+      });
+    }
+
+    function isLessonScheduled(courseCode) {
+        return courseCells.has(courseCode); // Much simpler check now!
+    }
+
+    // --- Lesson Loading (same as before, but calls updateConflicts) ---
+
+    function createLessonCard(lesson) {
+      const isScheduled = isLessonScheduled(lesson.course_code);
+      const buttonClass = isScheduled ? 'btn-danger' : 'btn-success';
+      const buttonText = isScheduled ? 'Remove' : 'Add';
+
+      return `
+          <div class="card mb-2">
+              <div class="card-body">
+                  <h5>${lesson.course_code} - ${lesson.name}</h5>
+                  <p>Times: ${lesson.processedtimes}</p>
+                  <p>Instructor: ${lesson.instructor}</p>
+                  <button onclick="toggleAddRemove('${lesson.course_code}', this)" class="${buttonClass}">${buttonText}</button>
+              </div>
+          </div>
+      `;
+    }
     async function loadLessons() {
         const courseCode = document.getElementById('courseCode').value;
         const courseName = document.getElementById('courseName').value;
@@ -231,32 +335,20 @@
         if (day) params.append('day', day);
 
         const url = `/api/lessons${params.toString() ? '?' + params.toString() : ''}`;
-        console.log("Fetching URL:", url); // Print the URL being fetched
 
         const response = await fetch(url);
         const lessons = await response.json();
-        console.log("Fetched lessons:", lessons); // Print the fetched lessons
-
 
         const lessonsList = document.getElementById('lessonsList');
-        lessonsList.innerHTML = lessons.map(lesson => {
-            console.log("Processing lesson:", lesson);  // Log each lesson object
-            return `
-                <div class="card mb-2">
-                    <div class="card-body">
-                        <h5>${lesson.course_code} - ${lesson.name}</h5>
-                        <p>Times: ${lesson.processedtimes}</p>
-                        <p>Instructor: ${lesson.instructor}</p>
-                        <button onclick="addToSchedule('${lesson.course_code}, ${lesson.processedtimes}')" class="btn btn-success">Add</button>
-                        <button onclick="removeFromSchedule('${lesson.course_code}')" class="btn btn-danger">Remove</button>
-                    </div>
-                </div>
-            `;
-        }).join('');
+        lessonsList.innerHTML = lessons.map(lesson => createLessonCard(lesson)).join('');
+
+        updateButtonStates();  // Update button states after loading.
+        updateConflicts();    // Check for conflicts after loading.
     }
 
 
     document.addEventListener('DOMContentLoaded', loadLessons);
+
     </script>
 </body>
 </html>
