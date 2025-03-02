@@ -20,53 +20,40 @@ def index():
 def get_lessons():
     query = Lesson.query
 
-    # --- Existing Filters ---
+    # Existing filters
     course_code = request.args.get('course_code')
     name = request.args.get('name')
+    max_grade = request.args.get('max_grade')
+    min_credits = request.args.get('min_credits')
+    selected_times = request.args.get('selected_times', '').split(',')
+    elasticity = int(request.args.get('elasticity', 0))
+
+
     if course_code:
         query = query.filter(Lesson.course_code.ilike(f'%{course_code}%'))
     if name:
         query = query.filter(Lesson.name.ilike(f'%{name}%'))
-
-    # --- Basic Time Filters ---
-    days_str = request.args.get('days')
-    start_time_str = request.args.get('start_time')  # e.g., "09.00"
-    end_time_str = request.args.get('end_time')      # e.g., "17.00"
-
-    if days_str:
-        days_list = days_str.split(',')
-        # Create a list of day filters (case-insensitive and partial matching)
-        day_filters = [Lesson.days.ilike(f'%{day}%') for day in days_list]
-        query = query.filter(db.or_(*day_filters)) # Apply OR across all day filters
-
-    if start_time_str:
-        start_hour = int(start_time_str.split('.')[0])  # Extract hour (e.g., 9)
-        query = query.filter(db.func.substr(Lesson.hours,1,2) >= str(start_hour-8).zfill(2))  # hours >= start_hour
-
-    if end_time_str:
-            end_hour = int(end_time_str.split('.')[0])
-            query = query.filter(db.func.substr(Lesson.hours, 1, 2) <= str(end_hour - 8).zfill(2))
-
-    # --- Advanced Time Filters ---
-    time_slots_str = request.args.get('time_slots')
-    if time_slots_str:
-        time_slots = time_slots_str.split(';')
-        slot_filters = []
-        for slot in time_slots:
-            day, time_val = slot.split(" ")
-            hour_val = time_val.split(".")[0]
-
-            slot_filters.append(db.and_(Lesson.days.ilike(f'%{day}%'), db.func.substr(Lesson.hours, 1, 2) == str(int(hour_val) -8).zfill(2) ))
-
-        query = query.filter(db.or_(*slot_filters))
+    if min_credits:
+        query = query.filter(Lesson.credits >= int(min_credits))
 
     lessons = query.all()
+    filtered_lessons = []
 
-    lesson_data = []
+
     for lesson in lessons:
+        if max_grade:
+            grade = None
+            for char in lesson.course_code:
+                if char.isdigit():
+                    grade = int(char)
+                    break
+            if grade is None or grade > int(max_grade):
+                continue  # Skip this lesson
+
         if lesson.days != "" and lesson.hours != "":
             days_list = []
             hours_list = []
+            check_hours_list = []
             lesson_count = 0
             lesson.hours = str(lesson.hours) if isinstance(lesson.hours, int) else lesson.hours
             for i in range(len(lesson.days)):
@@ -83,6 +70,7 @@ def get_lessons():
             if len(lesson.hours) == lesson_count:
                 for i in range(len(lesson.hours)):
                     hours_list.append(f"{(int(lesson.hours[i]) + 8):02d}.00 - {(int(lesson.hours[i]) + 8):02d}.50")
+                    check_hours_list.append(f"{(int(lesson.hours[i]) + 8):02d}.00")
             else:
                 skip_next = False
                 for i in range(len(lesson.hours)):
@@ -102,16 +90,26 @@ def get_lessons():
                     else:
                         hour = int(lesson.hours[i]) + 8
                     hours_list.append(f"{hour:02d}.00 - {hour:02d}.50")
+                    check_hours_list.append(f"{hour:02d}.00")
         processed_times = [f" {days_list[i]} {hours_list[i]}" for i in range(lesson_count)]
+        check_processed_times = [f"{days_list[i]}-{check_hours_list[i]}" for i in range(lesson_count)]
 
-        lesson_data.append({
-            'course_code': lesson.course_code,
-            'name': lesson.name,
-            'days': lesson.days,
-            'hours': lesson.hours,
-            'processedtimes': processed_times if lesson.days != "" else "",
-            'instructor': lesson.instructor,
-        })
-    return jsonify(lesson_data)
+
+        # Conflict calculation
+        conflict_count = 0
+        for time_slot in check_processed_times:
+            if time_slot not in selected_times:
+                conflict_count += 1
+
+        if conflict_count <= elasticity:
+            filtered_lessons.append({
+                'course_code': lesson.course_code,
+                'name': lesson.name,
+                'processedtimes': ', '.join(processed_times),
+                'instructor': lesson.instructor
+            })
+
+    return jsonify(filtered_lessons)
+
 if __name__ == '__main__':
     app.run(debug=True)

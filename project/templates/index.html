@@ -46,6 +46,14 @@
             border-radius: 4px;
             margin-right: 5px;
         }
+        input[type="number"], select {
+            background-color: #333;
+            color: #eee;
+            border: 1px solid #555;
+            padding: 8px;
+            border-radius: 4px;
+            margin-right: 5px;
+        }
         .btn-success {
             background-color: #28a745; /* Keep Bootstrap's green */
             border-color: #28a745;
@@ -113,6 +121,45 @@
             margin: 5px 0; /* Spacing between messages */
         }
 
+        .time-checkbox {
+        width: 100%;
+        height: 20px;
+        accent-color: #28a745;
+        }
+
+        .over-check {
+            cursor: pointer;
+            padding: 2px;
+            background-color: #333;
+            border-radius: 4px;
+        }
+
+        .over-check:hover {
+            background-color: #444;
+        }
+
+        .dropdown-menu {
+            display: block; /* Override Bootstrap's default display: none */
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+            z-index: 1000; /* Ensure it appears above other elements */
+            position: absolute; /* Required for proper positioning */
+        }
+
+        .dropdown-menu.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* Ensure dropdown is positioned correctly */
+        .dropdown {
+            position: relative;
+        }
+
+        .btn-group {
+            vertical-align: initial; /* Fix alignment issues */
+        }
     </style>
 </head>
 <body>
@@ -163,24 +210,60 @@
             <!-- Lessons section (filters and list, same as before) -->
             <h2>Lessons</h2>
             <div class="mb-4">
-                <input type="text" id="courseCode" placeholder="Course Code">
-                <input type="text" id="courseName" placeholder="Course Name">
-                <select id="dayFilter">
-                  <option value="">All Days</option>
-                  <option value="Monday">Monday</option>
-                  <option value="Tuesday">Tuesday</option>
-                  <option value="Wednesday">Wednesday</option>
-                  <option value="Thursday">Thursday</option>
-                  <option value="Friday">Friday</option>
-                </select>
-                <button onclick="loadLessons()" class="btn btn-primary">Filter</button>
-              </div>
-              <div id="lessonsList"></div>
+                <div class="col-6 mb-2">
+                    <input type="text" id="courseCode" placeholder="Course Code">
+                </div>
+                <div class="col-6 mb-2">
+                    <input type="text" id="courseName" placeholder="Course Name">
+                </div>
+                <div class="col-6 mb-2">
+                    <input type="number" id="maxGrade" placeholder="Max Grade" min="0">
+                </div>
+                <div class="col-6 mb-2">
+                    <input type="number" id="minCredits" placeholder="Min Credits" min="0">
+                </div>
+                <div class="col-6 mb-2">
+                    <div class="btn-group">
+                        <button class="btn btn-secondary dropdown-toggle" type="button" 
+                                id="timeFilterDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                            Time Filter
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-right p-3" style="width: 800px;" aria-labelledby="timeFilterDropdown">
+                            <div class="d-flex justify-content-between mb-2">
+                                <div>Elasticity: </div>
+                                <div>
+                                    <input type="number" id="elasticity" min="0" max="3" value="0" style="width: 60px;">
+                                    <button class="btn btn-sm btn-primary ml-2">Close</button>
+                                </div>
+                            </div>
+                            
+                            <!-- New Exclusion Button -->
+                            <div class="d-flex justify-content-between mb-2">
+                                <button onclick="excludeScheduledHours()" class="btn btn-warning">Exclude Scheduled Hours</button>
+                            </div>
+                            <div id="timeGrid" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px;">
+                                <!-- Days Header -->
+                                <div></div>
+                                <div class="text-center over-check" data-type="day" data-day="Monday">Mon</div>
+                                <div class="text-center over-check" data-type="day" data-day="Tuesday">Tue</div>
+                                <div class="text-center over-check" data-type="day" data-day="Wednesday">Wed</div>
+                                <div class="text-center over-check" data-type="day" data-day="Thursday">Thu</div>
+                                <div class="text-center over-check" data-type="day" data-day="Friday">Fri</div>
+                                <div class="text-center over-check" data-type="day" data-day="Saturday">Sat</div>
+                            </div>
+                        </div>
+                    </div>    
+                </div>
+                <div class="col-6 mb-2">
+                    <button onclick="loadLessons()" class="btn btn-primary">Search</button>
+                </div>
+            </div>
+            <div id="lessonsList"></div>
         </div>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 
     <script>
@@ -325,29 +408,138 @@
       `;
     }
     async function loadLessons() {
+        const selectedTimes = Array.from(document.querySelectorAll('.time-checkbox:checked'))
+            .map(cb => `${cb.dataset.day}-${cb.dataset.hour}`);
+        
+        const elasticity = parseInt(document.getElementById('elasticity').value) || 0;
         const courseCode = document.getElementById('courseCode').value;
         const courseName = document.getElementById('courseName').value;
-        const day = document.getElementById('dayFilter').value;
+        const maxGrade = document.getElementById('maxGrade').value;
+        const minCredits = document.getElementById('minCredits').value;
 
         const params = new URLSearchParams();
         if (courseCode) params.append('course_code', courseCode);
         if (courseName) params.append('name', courseName);
-        if (day) params.append('day', day);
+        if (maxGrade) params.append('max_grade', maxGrade);
+        if (minCredits) params.append('min_credits', minCredits);
+        params.append('selected_times', selectedTimes.join(','));
+        params.append('elasticity', elasticity);
 
-        const url = `/api/lessons${params.toString() ? '?' + params.toString() : ''}`;
-
-        const response = await fetch(url);
+        const response = await fetch(`/api/lessons?${params.toString()}`);
         const lessons = await response.json();
 
         const lessonsList = document.getElementById('lessonsList');
         lessonsList.innerHTML = lessons.map(lesson => createLessonCard(lesson)).join('');
-
-        updateButtonStates();  // Update button states after loading.
-        updateConflicts();    // Check for conflicts after loading.
+        updateButtonStates();
+        updateConflicts();
     }
 
 
     document.addEventListener('DOMContentLoaded', loadLessons);
+
+    function setupTimeFilter() {
+            // Add this line to prevent exclude button from closing dropdown
+        document.querySelector('[onclick="excludeScheduledHours()"]').addEventListener('click', e => e.stopPropagation());
+
+        // Handle over-check clicks
+        document.querySelectorAll('.over-check').forEach(header => {
+            header.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent dropdown close
+                const type = e.target.dataset.type;
+                const value = type === 'day' ? e.target.dataset.day : e.target.dataset.hour;
+                
+                // Get relevant checkboxes
+                const checkboxes = document.querySelectorAll(
+                    type === 'day' 
+                    ? `.time-checkbox[data-day="${value}"]`
+                    : `.time-checkbox[data-hour="${value}"]`
+                );
+
+                // Toggle state
+                const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+                checkboxes.forEach(cb => cb.checked = !allChecked);
+                updateOverCheckState();
+            });
+        });
+
+        // Handle checkbox changes
+        document.querySelectorAll('.time-checkbox').forEach(cb => {
+            cb.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent dropdown close
+            });
+            cb.addEventListener('change', () => {
+                updateOverCheckState();
+            });
+        });
+    }
+
+    function excludeScheduledHours() {
+        // Uncheck all time slots corresponding to scheduled lessons
+        document.querySelectorAll('#schedule td.occupied').forEach(cell => {
+            const day = cell.dataset.day;
+            const hour = cell.dataset.time; // e.g., "09.00"
+            
+            // Find matching checkboxes and uncheck them
+            const checkboxes = document.querySelectorAll(`.time-checkbox[data-day="${day}"][data-hour="${hour}"]`);
+            checkboxes.forEach(cb => cb.checked = false);
+        });
+        
+        updateOverCheckState(); // Update header colors
+    }
+
+    function updateOverCheckState() {
+        // Update day headers
+        document.querySelectorAll('.over-check[data-type="day"]').forEach(header => {
+            const day = header.dataset.day;
+            const checkboxes = Array.from(document.querySelectorAll(`.time-checkbox[data-day="${day}"]`));
+            header.style.backgroundColor = checkboxes.every(cb => cb.checked) ? '#28a745' : '#dc3545';
+        });
+
+        // Update hour headers
+        document.querySelectorAll('.over-check[data-type="hour"]').forEach(header => {
+            const hour = header.dataset.hour;
+            const checkboxes = Array.from(document.querySelectorAll(`.time-checkbox[data-hour="${hour}"]`));
+            header.style.backgroundColor = checkboxes.every(cb => cb.checked) ? '#28a745' : '#dc3545';
+        });
+    }
+
+    function generateTimeGrid() {
+        const timeGrid = document.querySelector('#timeGrid');
+        
+        // Generate time slots for 9:00 to 19:00
+        for (let hour = 9; hour <= 19; hour++) {
+            const timeHeader = document.createElement('div');
+            timeHeader.className = 'over-check text-right pr-2';
+            timeHeader.dataset.type = 'hour';
+            timeHeader.dataset.hour = `${hour.toString().padStart(2, '0')}.00`;
+            timeHeader.textContent = `${hour.toString().padStart(2, '0')}:00`;
+            timeGrid.appendChild(timeHeader);
+
+            // Create checkboxes for each day
+            ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].forEach(day => {
+                const checkDiv = document.createElement('div');
+                checkDiv.className = 'time-check';
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = `${day}-${hour.toString().padStart(2, '0')}.00`;
+                checkbox.dataset.day = day;
+                checkbox.dataset.hour = `${hour.toString().padStart(2, '0')}.00`;
+                checkbox.checked = true;
+                checkbox.className = 'time-checkbox';
+                
+                checkDiv.appendChild(checkbox);
+                timeGrid.appendChild(checkDiv);
+            });
+        }
+    }
+
+    // Initialize time filter when DOM loads
+    document.addEventListener('DOMContentLoaded', () => {
+        generateTimeGrid();
+        setupTimeFilter();
+        loadLessons();
+    });
 
     </script>
 </body>

@@ -3,7 +3,6 @@ venv/
 env/
 venv
 extras/
-*.db
 database_test.py
 
 # Ignore Python cache files
